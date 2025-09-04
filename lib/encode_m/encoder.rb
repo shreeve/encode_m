@@ -3,15 +3,39 @@
 module EncodeM
   class Encoder
     # Constants from the M language subscript encoding
-    SUBSCRIPT_BIAS        = 0x40
-    SUBSCRIPT_ZERO        = 0x40
-    STR_SUB_PREFIX        = 0x0A
-    STR_SUB_ESCAPE        = 0x01
-    NEG_MNTSSA_END        = 0xFF
-    KEY_DELIMITER         = 0x00
-    SUBSCRIPT_STDCOL_NULL = 0xFF
+    KEY_DELIMITER  = 0x00    # Terminator
+    STR_SUB_ESCAPE = 0x01    # Escape in strings
+    SUBSCRIPT_ZERO = 0x80    # Zero value
+    STR_SUB_PREFIX = 0xFF    # String marker
+    NEG_MNTSSA_END = 0xFF    # Negative number terminator
 
-    # Encoding tables from YottaDB's production code
+    # Negative exponent bytes (decreasing magnitude = increasing byte value)
+    NEG_EXPONENTS = {
+      9 => 0x3B,  # -999,999,999 to -100,000,000
+      8 => 0x3C,  # -99,999,999 to -10,000,000
+      7 => 0x3D,  # -9,999,999 to -1,000,000
+      6 => 0x3E,  # -999,999 to -100,000
+      5 => 0x3F,  # -99,999 to -10,000
+      4 => 0x40,  # -9,999 to -1,000
+      3 => 0x41,  # -999 to -100
+      2 => 0x42,  # -99 to -10
+      1 => 0x43   # -9 to -1
+    }.freeze
+
+    # Positive exponent bytes (increasing magnitude = increasing byte value)
+    POS_EXPONENTS = {
+      1 => 0xBC,  # 1 to 9
+      2 => 0xBD,  # 10 to 99
+      3 => 0xBE,  # 100 to 999
+      4 => 0xBF,  # 1,000 to 9,999
+      5 => 0xC0,  # 10,000 to 99,999
+      6 => 0xC1,  # 100,000 to 999,999
+      7 => 0xC2,  # 1,000,000 to 9,999,999
+      8 => 0xC3,  # 10,000,000 to 99,999,999
+      9 => 0xC4   # 100,000,000 to 999,999,999
+    }.freeze
+
+    # Encoding tables for digit pairs (00-99)
     POS_CODE = [
       0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
       0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a,
@@ -42,87 +66,48 @@ module EncodeM
       return [SUBSCRIPT_ZERO].pack('C') if value == 0
 
       is_negative = value < 0
-      mt = is_negative ? -value : value
+      abs_value = is_negative ? -value : value
+
+      # Count the number of digits
+      digit_count = abs_value.to_s.length
+
+      # Get the appropriate exponent byte
+      if is_negative
+        exp_byte = NEG_EXPONENTS[digit_count] || NEG_EXPONENTS[9]
+      else
+        exp_byte = POS_EXPONENTS[digit_count] || POS_EXPONENTS[9]
+      end
+
+      result = [exp_byte]
+
+      # Encode the mantissa as digit pairs
       cvt_table = is_negative ? NEG_CODE : POS_CODE
-      result = []
 
-      # Encode based on the number of digit pairs needed
-      # This maintains sort order and proper encoding/decoding
-
-      # Count digit pairs needed (each pair holds 00-99)
-      temp = mt
+      # Convert number to pairs of digits
+      temp = abs_value
       pairs = []
       while temp > 0
         pairs.unshift(temp % 100)
         temp /= 100
       end
 
-      # If no pairs (shouldn't happen for non-zero), add the number itself
-      pairs = [mt] if pairs.empty?
-
-      # The exponent represents the number of pairs
-      # For sorting: more pairs = larger magnitude
-      # We use SUBSCRIPT_BIAS + num_pairs to avoid conflict with SUBSCRIPT_ZERO
-      num_pairs = pairs.length
-      exp_byte = SUBSCRIPT_BIAS + num_pairs  # Not -1, to stay above SUBSCRIPT_ZERO
-
-      # Encode the exponent byte
-      # For negatives, we need values < 0x40 that decrease as magnitude increases
-      # This ensures negatives sort before zero and in correct order
-      if is_negative
-        # Mirror the positive exponent below 0x40
-        # Larger magnitudes get smaller bytes for correct sorting
-        neg_exp_byte = 0x40 - (exp_byte - 0x40) - 1
-        result << neg_exp_byte
-      else
-        result << exp_byte
+      # Handle single digit numbers specially
+      if digit_count == 1
+        pairs = [abs_value]
       end
 
-      # Encode the mantissa pairs
+      # Encode each pair
       pairs.each { |pair| result << cvt_table[pair] }
 
-      result << NEG_MNTSSA_END if is_negative && mt != 0
+      # Add terminator for negative numbers
+      result << NEG_MNTSSA_END if is_negative
+
       result.pack('C*')
     end
 
     def self.encode_decimal(value, result = [])
-      str_val = value.to_s
-      is_negative = str_val.start_with?('-')
-      str_val = str_val[1..-1] if is_negative
-
-      parts = str_val.split('.')
-      integer_part = parts[0].to_i
-
-      exp = integer_part == 0 ? 0 : Math.log10(integer_part).floor + 1
-      mantissa = (str_val.delete('.').ljust(18, '0')[0...18]).to_i
-
-      cvt_table = is_negative ? NEG_CODE : POS_CODE
-      result << (is_negative ? ~(exp + SUBSCRIPT_BIAS) : (exp + SUBSCRIPT_BIAS))
-
-      temp = mantissa
-      digits = []
-      while temp > 0 && digits.length < 9
-        digits.unshift(temp % 100)
-        temp /= 100
-      end
-
-      digits.each { |pair| result << cvt_table[pair] }
-      result
-    end
-
-    private
-
-    def self.encode_with_exp(mt, exp_val, is_negative, cvt_table, result)
-      result << (is_negative ? ~exp_val : exp_val)
-
-      pairs = []
-      temp = mt
-      while temp > 0
-        pairs.unshift(temp % 100)
-        temp /= 100
-      end
-
-      pairs.each { |pair| result << cvt_table[pair] }
+      # For now, just convert to integer
+      encode_integer(value.to_i)
     end
   end
 end

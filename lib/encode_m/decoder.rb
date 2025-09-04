@@ -9,7 +9,9 @@ module EncodeM
       return 0 if bytes[0] == Encoder::SUBSCRIPT_ZERO
 
       first_byte = bytes[0]
-      # Negatives are now < 0x40, positives are > 0x40, zero is 0x40
+
+      # Determine if negative based on first byte
+      # Negative: 0x3B-0x43, Positive: 0xBC-0xC4
       is_negative = first_byte < Encoder::SUBSCRIPT_ZERO
 
       if is_negative
@@ -20,6 +22,7 @@ module EncodeM
 
       mantissa = 0
 
+      # Decode mantissa from remaining bytes
       bytes[1..-1].each do |byte|
         break if byte == Encoder::NEG_MNTSSA_END || byte == Encoder::KEY_DELIMITER
 
@@ -29,8 +32,7 @@ module EncodeM
         mantissa = mantissa * 100 + digit_pair
       end
 
-      # The mantissa contains the actual number value
-      # The exponent byte just determines sort order
+      # The mantissa is the actual number value
       result = mantissa
 
       is_negative ? -result : result
