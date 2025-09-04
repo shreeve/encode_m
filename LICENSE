@@ -1,6 +1,11 @@
 MIT License
 
-Copyright (c) 2025 Steve Shreeve
+Copyright (c) 2024 Steve Shreeve
+
+Algorithm Credit: The numeric encoding algorithm implemented in this gem is
+based on the work in YottaDB/GT.M, originally developed by Greystone Technology
+Corporation in the 1980s and currently maintained by YottaDB LLC under AGPLv3.
+This Ruby implementation is a clean-room reimplementation of the algorithm.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
