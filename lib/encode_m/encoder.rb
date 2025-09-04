@@ -3,12 +3,12 @@
 module EncodeM
   class Encoder
     # Constants from the M language subscript encoding
-    SUBSCRIPT_BIAS = 0x40
-    SUBSCRIPT_ZERO = 0x40
-    STR_SUB_PREFIX = 0x0A
-    STR_SUB_ESCAPE = 0x01
-    NEG_MNTSSA_END = 0xFF
-    KEY_DELIMITER = 0x00
+    SUBSCRIPT_BIAS        = 0x40
+    SUBSCRIPT_ZERO        = 0x40
+    STR_SUB_PREFIX        = 0x0A
+    STR_SUB_ESCAPE        = 0x01
+    NEG_MNTSSA_END        = 0xFF
+    KEY_DELIMITER         = 0x00
     SUBSCRIPT_STDCOL_NULL = 0xFF
 
     # Encoding tables from YottaDB's production code

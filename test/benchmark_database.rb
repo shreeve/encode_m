@@ -2,7 +2,7 @@
 
 require 'benchmark/ips'
 require 'bigdecimal'
-require_relative 'lib/encode_m'
+require_relative '../lib/encode_m'
 
 puts "EncodeM Database Use Case Benchmark"
 puts "=" * 60
@@ -28,19 +28,19 @@ Benchmark.ips do |x|
     sorted = decoded.sort
     sorted.map { |n| [n].pack('E') }
   end
-  
+
   x.report("BigDecimal (parse->sort->string)") do
     # Must parse strings, sort, then convert back
     decoded = bigdecimal_strings.map { |s| BigDecimal(s) }
     sorted = decoded.sort
     sorted.map(&:to_s)
   end
-  
+
   x.report("EncodeM (direct byte sort!)") do
     # Just sort the bytes directly - no decoding needed!
     encode_m_bytes.sort
   end
-  
+
   x.compare!
 end
 
@@ -55,18 +55,18 @@ upper_bound_em = M(100).to_encoded
 
 Benchmark.ips do |x|
   x.report("Float (decode all & filter)") do
-    float_bytes.select { |b| 
+    float_bytes.select { |b|
       val = b.unpack('E')[0]
       val >= -100 && val <= 100
     }
   end
-  
+
   x.report("EncodeM (direct byte comparison!)") do
     sorted_encode_m.select { |b|
       b >= lower_bound_em && b <= upper_bound_em
     }
   end
-  
+
   x.compare!
 end
 
@@ -86,7 +86,7 @@ puts "-" * 60
   float_size = [n.to_f].pack('E').bytesize
   bigdecimal_size = n.to_s.bytesize
   encode_m_size = M(n).to_encoded.bytesize
-  
+
   puts "Number #{n}:"
   puts "  Float:      #{float_size} bytes"
   puts "  BigDecimal: #{bigdecimal_size} bytes (as string)"

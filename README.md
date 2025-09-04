@@ -113,6 +113,25 @@ bundle install
 rake test
 ```
 
+### Running Benchmarks
+
+The gem includes two benchmark scripts in the `test/` directory:
+
+```bash
+# Performance benchmark - arithmetic and sorting operations
+ruby -I lib test/benchmark.rb
+
+# Database use case benchmark - demonstrates key benefits
+ruby -I lib test/benchmark_database.rb
+```
+
+Note: You may need to install `bigdecimal` gem for Ruby 3.4+:
+```bash
+gem install bigdecimal
+```
+
+### Building and Installing
+
 To install this gem locally:
 
 ```bash
