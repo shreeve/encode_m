@@ -1,4 +1,4 @@
 module EncodeM
-  VERSION = "2.0.0"
-  # Honoring 40 years of M language (MUMPS) innovation from GT.M/YottaDB
+  VERSION = "3.0.0"
+  # Complete M language subscript encoding - now with strings and composite keys!
 end

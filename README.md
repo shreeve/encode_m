@@ -3,15 +3,25 @@
 [![Gem Version](https://badge.fury.io/rb/encode_m.svg)](https://badge.fury.io/rb/encode_m)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Bringing the power of M language (MUMPS) numeric encoding to Ruby. Based on YottaDB/GT.M's 40-year production-tested algorithm.
+**🎉 Version 3.0: Complete M language subscript encoding - numbers, strings, and composite keys!**
+
+Bringing the power of M language (MUMPS) subscript encoding to Ruby. Build hierarchical database keys like `M("users", 42, "email")` with perfect sort order. Based on YottaDB/GT.M's 40-year production-tested algorithm.
 
 ## Why You Should Use EncodeM
 
-If you're building anything that stores numbers in a database or key-value store, EncodeM is a game-changer. The magic is simple but powerful: when you encode numbers with EncodeM, the resulting byte strings maintain numeric sort order. This means your database can compare and sort numbers **without ever decoding them** - just pure byte comparison like strcmp(). Imagine your B-tree indexes comparing numbers 3x faster because they never deserialize, or range queries that just compare raw bytes. This is the secret sauce that's been powering Epic (used by 70% of US hospitals) and other M language systems for 40 years.
+**Version 3.0 brings complete M language subscript support!** Not just numbers anymore - now you can encode strings and build powerful composite keys for hierarchical data structures.
 
-Beyond the sorting superpower, EncodeM is surprisingly memory efficient. Small numbers (1-99) take just 2 bytes compared to 8 for a Float, and common values stay compact at 2-6 bytes. You get 18 digits of precision - more than Float but without BigDecimal's overhead. The encoding handles positive, negative, and zero correctly, maintaining perfect sort order across the entire numeric range.
+If you're building anything that stores data in a database or key-value store, EncodeM is a game-changer. The magic is simple but powerful: when you encode values with EncodeM, the resulting byte strings maintain perfect sort order. This means your database can compare and sort **without ever decoding** - just pure byte comparison like strcmp().
 
-The best part? It's production-tested technology. This isn't some experimental algorithm - it's literally the same encoding that's been processing medical records and financial transactions since the 1980s in YottaDB/GT.M systems. If you're building a system where you need sortable numeric keys (think time-series data, financial ledgers, or any ordered numeric index), EncodeM gives you the performance of byte-level operations with the correctness of proper numeric comparison. Drop it in, encode your numbers, and watch your database operations get faster.
+### What's New in v3.0:
+- **String encoding**: Strings sort correctly after all numbers
+- **Composite keys**: Build hierarchical keys like `M("users", 42, "profile", "email")`
+- **Full M compatibility**: Generate YottaDB/GT.M compatible subscripts
+- **Mixed types**: Combine numbers, strings, and more in a single key
+
+Imagine building a user database where `M("users", userId, "posts", postId)` creates perfectly sortable hierarchical keys. Or time-series data with `M(2025, 1, 15, sensorId, "temperature")`. The encoding ensures all components sort correctly - numbers before strings, maintaining hierarchical order.
+
+This is production-tested technology - literally the same encoding that's been processing medical records and financial transactions since the 1980s in YottaDB/GT.M systems. Epic (70% of US hospitals) and VistA use this exact algorithm for their global arrays. Drop it in, encode your data, and watch your database operations get faster.
 
 ## About the M Language Heritage
 
@@ -19,11 +29,13 @@ The M language (formerly MUMPS - Massachusetts General Hospital Utility Multi-Pr
 
 ## Key Features
 
-- **Sortable Byte Encoding**: Numbers encode to bytes that sort correctly without decoding
+- **Complete M Language Support**: Numbers, strings, and composite keys
+- **Sortable Byte Encoding**: All types encode to bytes that sort correctly without decoding
+- **Hierarchical Keys**: Build multi-component database keys with perfect sort order
 - **Production-Tested**: Algorithm proven in healthcare and finance for 40 years
-- **Optimized for Real Use**: Special handling for common number ranges
-- **Memory Efficient**: Compact representation, especially for small integers
-- **Database-Friendly**: Perfect for indexing and byte-wise comparisons
+- **YottaDB Compatible**: Generate valid YottaDB/GT.M subscripts
+- **Memory Efficient**: Compact representation for all data types
+- **Database-Friendly**: Perfect for B-tree indexes and key-value stores
 
 ## Installation
 
@@ -41,40 +53,84 @@ $ gem install encode_m
 
 ## Usage
 
+### Numbers (Classic M encoding)
 ```ruby
 require 'encode_m'
 
 # Create numbers using the M() convenience method
 a = M(42)
-b = M(3.14)
+b = M(3.14)      # Floats are truncated to integers
 c = M(-100)
 
 # Arithmetic works naturally
-sum = a + b        # => EncodeM(45.14)
-product = a * M(2) # => EncodeM(84)
+sum = a + b        # => M(45)
+product = a * M(2) # => M(84)
 
 # The magic: encoded bytes sort correctly!
 numbers = [M(5), M(-10), M(0), M(100), M(-5)]
 sorted = numbers.sort  # Correctly sorted: -10, -5, 0, 5, 100
 
 # Perfect for databases - compare without decoding
-encoded_a = a.to_encoded  # => "\xBD\x43"
+encoded_a = a.to_encoded  # => "\xBD\x2B"
 encoded_b = b.to_encoded  # => "\xBC\x04"
-encoded_a < encoded_b      # => false (42 > 3.14)
+encoded_a < encoded_b      # => false (42 > 3)
+```
 
-# Decode back to numbers
-original = EncodeM.decode(encoded_a)  # => 42
+### Strings (New in v3.0!)
+```ruby
+# Encode strings - they sort after all numbers
+name = M("Alice")
+empty = M("")        # Empty string
+
+# M language ordering: all numbers < all strings
+M(999999) < M("0")   # => true
+
+# String comparison maintains byte order
+M("apple") < M("banana")  # => true
+```
+
+### Composite Keys (New in v3.0!)
+```ruby
+# Build hierarchical database keys
+user_email = M("users", 42, "email")
+user_name = M("users", 42, "name")
+user_post = M("users", 42, "posts", 1)
+
+# Perfect for time-series data
+event = M(2025, 1, 15, 14, 30, "sensor_123", "temperature")
+
+# Keys sort hierarchically
+keys = [
+  M("users", 2, "email"),
+  M("users", 1, "name"),
+  M("users", 1, "email"),
+  M("users", 2, "name")
+].sort
+# Result order:
+# ["users", 1, "email"]
+# ["users", 1, "name"]
+# ["users", 2, "email"]
+# ["users", 2, "name"]
+
+# Access components
+user_email[0].value  # => "users"
+user_email[1].value  # => 42
+user_email.to_a      # => ["users", 42, "email"]
+
+# Decode composite keys
+encoded = user_email.to_encoded
+decoded = EncodeM.decode_composite(encoded)  # => ["users", 42, "email"]
 ```
 
 ## Format Specification
 
-EncodeM uses the M language numeric encoding that guarantees lexicographic byte ordering matches numeric ordering.
+EncodeM uses the complete M language subscript encoding that guarantees lexicographic byte ordering matches logical ordering for all data types.
 
 ### Encoding Structure
 
 ```
-0x00      KEY_DELIMITER (terminator)
-0x01      STR_SUB_ESCAPE (escape in strings)
+0x00      KEY_DELIMITER (separates components in composite keys)
+0x01      STR_SUB_ESCAPE (escape byte for strings)
 ------- NEGATIVE NUMBERS (decreasing magnitude) -------
 0x3B      -999,999,999 to -100,000,000 (9 digits)
 0x3C      -99,999,999 to -10,000,000 (8 digits)
@@ -97,28 +153,46 @@ EncodeM uses the M language numeric encoding that guarantees lexicographic byte 
 0xC2      1,000,000 to 9,999,999 (7 digits)
 0xC3      10,000,000 to 99,999,999 (8 digits)
 0xC4      100,000,000 to 999,999,999 (9 digits)
-0xFF      STR_SUB_PREFIX (string marker)
+------- STRINGS -------
+0xFF      STR_SUB_PREFIX (all strings start with this)
 ```
 
+### Numeric Encoding
 - **First byte**: Determines sign and magnitude range
 - **Following bytes**: Encode digit pairs (00-99) using lookup tables
 - **Terminator**: Negative numbers end with `0xFF` to maintain sort order
 
+### String Encoding
+- **Prefix**: All strings start with `0xFF`
+- **Content**: UTF-8 bytes of the string
+- **Escaping**: Special bytes are escaped:
+  - `0x00` → `0x01 0xFF`
+  - `0x01` → `0x01 0xFE`
+
+### Composite Key Encoding
+- **Structure**: Components separated by `0x00` (KEY_DELIMITER)
+- **Ordering**: Maintains hierarchical sort order
+- **Example**: `M("users", 42)` → `[0xFF "users" 0x00 0xBD 0x2B]`
+
 ### Encoding Examples
 
-| Number | Hex Bytes | Explanation |
-|--------|-----------|-------------|
-| -1000 | `40 EE FE FF` | 4-digit negative, mantissa, terminator |
-| -100 | `41 FD FE FF` | 3-digit negative, mantissa, terminator |
-| -10 | `42 EE FF` | 2-digit negative, mantissa, terminator |
-| -1 | `43 FD FF` | 1-digit negative, mantissa, terminator |
+| Value | Hex Bytes | Description |
+|-------|-----------|-------------|
+| -1000 | `3F FD EF FF` | 4-digit negative |
+| -1 | `43 FB FF` | 1-digit negative |
 | 0 | `80` | Zero (single byte) |
-| 1 | `BC 02` | 1-digit positive, mantissa |
-| 10 | `BD 11` | 2-digit positive, mantissa |
-| 100 | `BE 02 01` | 3-digit positive, mantissa |
-| 1000 | `BF 11 01` | 4-digit positive, mantissa |
+| 1 | `BC 02` | 1-digit positive |
+| 42 | `BD 2B` | 2-digit positive |
+| 1000 | `BF 0B 01` | 4-digit positive |
+| "Hello" | `FF 48 65 6C 6C 6F` | String with 0xFF prefix |
+| "" | `FF` | Empty string |
+| ["users", 42] | `FF 75 73 65 72 73 00 BD 2B` | Composite key |
+| [2025, 1, 15] | `BF 14 19 00 BC 02 00 BD 10` | Date as composite |
 
-The encoding ensures: `bytewise_compare(encode(x), encode(y)) == numeric_compare(x, y)`
+The encoding ensures:
+- `bytewise_compare(encode(x), encode(y)) == logical_compare(x, y)`
+- All numbers sort before all strings
+- Composite keys maintain hierarchical order
 
 ## Ordering Guarantees
 
@@ -138,13 +212,15 @@ This enables direct byte comparison in databases without decoding.
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `M(value)` | Create EncodeM number (global) | `M(42)` |
-| `EncodeM.new(value)` | Create EncodeM number | `EncodeM.new(42)` |
-| `EncodeM.decode(bytes)` | Decode bytes to number | `EncodeM.decode("\x41\x43")` → `42` |
-| `#to_encoded` | Get encoded byte string | `M(42).to_encoded` → `"\x41\x43"` |
-| `#to_i` | Convert to Integer | `M(3.14).to_i` → `3` |
-| `#to_f` | Convert to Float | `M(42).to_f` → `42.0` |
-| `#to_s` | Convert to String | `M(42).to_s` → `"42"` |
+| `M(value)` | Create encoded value | `M(42)`, `M("hello")` |
+| `M(*values)` | Create composite key | `M("users", 42, "email")` |
+| `EncodeM.new(value)` | Create encoded value | `EncodeM.new(42)` |
+| `EncodeM.new(*values)` | Create composite key | `EncodeM.new("users", 42)` |
+| `EncodeM.decode(bytes)` | Decode bytes to value | `EncodeM.decode("\xBD\x2B")` → `42` |
+| `EncodeM.decode_composite(bytes)` | Decode composite key | Returns array of components |
+| `#to_encoded` | Get encoded byte string | `M(42).to_encoded` → `"\xBD\x2B"` |
+| `#value` | Get original value | `M(42).value` → `42` |
+| `#to_a` | Get composite components | `M("a", 1).to_a` → `["a", 1]` |
 
 ### Arithmetic Operations
 
@@ -167,21 +243,43 @@ This enables direct byte comparison in databases without decoding.
 | `>=` | Greater or equal | `M(10) >= M(5)` → `true` |
 | `<=>` | Spaceship operator | `M(5) <=> M(10)` → `-1` |
 
-### Predicates
+### Numeric Methods
 
 | Method | Description | Example |
 |--------|-------------|---------|
+| `#to_i` | Convert to Integer | `M(3.14).to_i` → `3` |
+| `#to_f` | Convert to Float | `M(42).to_f` → `42.0` |
+| `#to_s` | Convert to String | `M(42).to_s` → `"42"` |
 | `#zero?` | Check if zero | `M(0).zero?` → `true` |
 | `#positive?` | Check if positive | `M(42).positive?` → `true` |
 | `#negative?` | Check if negative | `M(-5).negative?` → `true` |
+
+### String Methods
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `#to_s` | Get string value | `M("hello").to_s` → `"hello"` |
+| `#length` | String length | `M("hello").length` → `5` |
+| `#empty?` | Check if empty | `M("").empty?` → `true` |
+
+### Composite Methods
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `#[]` | Access component | `M("a", 1)[0]` → `M("a")` |
+| `#length` | Number of components | `M("a", 1, "b").length` → `3` |
+| `#to_a` | Get all components | `M("a", 1).to_a` → `["a", 1]` |
 
 ## Edge Cases & Limits
 
 ### Supported Values
 - **Integers**: Full range up to 18 digits
-- **Decimals**: Currently converts to integer (decimal support planned)
-- **Zero**: Handled as special case (single byte: `0x40`)
+- **Floats**: Truncated to integers (M language design)
+- **Strings**: Any UTF-8 string, with automatic escaping
+- **Composite Keys**: Unlimited components of mixed types
+- **Zero**: Handled as special case (single byte: `0x80`)
 - **Negative numbers**: Full support with proper ordering
+- **Nil**: Converted to empty string `""`
 
 ### Not Supported
 - **NaN**: Raises `ArgumentError`

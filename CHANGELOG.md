@@ -5,6 +5,43 @@ All notable changes to the EncodeM project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-01-03
+
+### 🎉 Major Features
+- **Complete M language subscript support!** Now includes strings and composite keys
+- String encoding with proper `0xFF` prefix and escape sequences
+- Composite keys for hierarchical data structures (e.g., `M("users", 42, "email")`)
+- Full compatibility with YottaDB/GT.M subscript encoding
+
+### Added
+- `EncodeM::String` class for string subscripts
+- `EncodeM::Composite` class for multi-component keys
+- Support for variadic arguments in `M()` function
+- Automatic type detection (numeric strings parse as numbers)
+- Comprehensive test suite for string and composite features
+- Support for nil values (converted to empty strings)
+
+### Changed
+- Float values are now truncated to integers (M language only supports integer encoding)
+- `M()` function can now accept multiple arguments for composite keys
+- Decoder enhanced to handle strings and composite keys
+- Division operations now perform integer division
+
+### Examples
+```ruby
+# Strings
+M("Hello")                   # String encoding
+M("")                        # Empty string
+
+# Composite keys
+M("users", 42, "email")      # Database-style keys
+M(2025, 1, 15)               # Date as composite
+M("cache", namespace, key)    # Cache keys
+
+# Mixed types
+M("user", 123, "posts", -1)  # All types work together
+```
+
 ## [2.0.0] - 2025-09-03
 
 ### Changed

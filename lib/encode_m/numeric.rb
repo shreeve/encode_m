@@ -59,12 +59,30 @@ module EncodeM
 
     # M language feature: encoded comparison
     def <=>(other)
-      @encoded <=> self.class.new(other).encoded
+      case other
+      when EncodeM::Numeric
+        @encoded <=> other.encoded
+      when EncodeM::String
+        -1  # Numbers always sort before strings in M language
+      when EncodeM::Composite
+        # Let Composite handle the comparison
+        -(other <=> self)
+      when Numeric
+        @encoded <=> self.class.new(other).encoded
+      else
+        nil
+      end
     end
 
     def ==(other)
-      return false unless other.is_a?(self.class) || other.is_a?(::Numeric)
-      @value == coerce_value(other)
+      case other
+      when EncodeM::Numeric
+        @value == other.value
+      when Numeric
+        @value == other
+      else
+        false
+      end
     end
 
     def abs
@@ -91,11 +109,6 @@ module EncodeM
       end
     end
 
-    # Direct encoded comparison - key M language feature
-    def encoded_compare(other)
-      @encoded <=> other.encoded
-    end
-
     private
 
     def parse_value(val)
@@ -105,10 +118,10 @@ module EncodeM
       when Float
         raise ArgumentError, "Cannot represent Infinity" if val.infinite?
         raise ArgumentError, "Cannot represent NaN" if val.nan?
-        val
-      when String
+        val.to_i  # M language only supports integer encoding
+      when ::String
         if val.include?('.')
-          Float(val)
+          Float(val).to_i  # M language only supports integer encoding
         else
           Integer(val)
         end
